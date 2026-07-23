@@ -106,12 +106,27 @@ class VideoChannelUploader:
                     print("ℹ️ 使用当前默认视频号")
             
             print("📱 请使用微信扫码登录...")
-            print("   (等待60秒)")
+            print("=" * 50)
+            print("⚠️  需要您的协助！")
+            print("=" * 50)
+            print("1. 请查看屏幕上显示的二维码")
+            print("2. 使用微信扫码登录")
+            print("3. 如需帮助，请联系: 扫码找我")
+            print("=" * 50)
             
             try:
-                # 等待登录成功 (检测头像出现)
+                # 尝试检测扫码成功
                 self.page.wait_for_selector(".user-avatar, .user-name", timeout=60000)
                 print("✅ 登录成功")
+            except:
+                # 超时后询问用户
+                print("\n⏱️ 等待超时或需要协助")
+                user_input = input("是否已完成扫码登录？(y/n): ")
+                if user_input.lower() == 'y':
+                    print("✅ 用户确认登录完成")
+                else:
+                    print("❌ 登录未完成")
+                    return False
                 
                 # 验证当前视频号
                 try:
@@ -142,6 +157,13 @@ class VideoChannelUploader:
                     pass
             
             print("📱 请使用微信扫码登录...")
+            print("=" * 50)
+            print("⚠️  需要您的协助！")
+            print("=" * 50)
+            print("1. 请查看浏览器中显示的二维码")
+            print("2. 使用微信扫码登录")
+            print("3. 如需帮助，请联系: 扫码找我")
+            print("=" * 50)
             
             try:
                 WebDriverWait(self.driver, 60).until(
@@ -149,8 +171,14 @@ class VideoChannelUploader:
                 )
                 print("✅ 登录成功")
             except:
-                print("❌ 登录超时")
-                return False
+                # 超时后询问用户
+                print("\n⏱️ 等待超时或需要协助")
+                user_input = input("是否已完成扫码登录？(y/n): ")
+                if user_input.lower() == 'y':
+                    print("✅ 用户确认登录完成")
+                else:
+                    print("❌ 登录未完成")
+                    return False
         
         return True
     
