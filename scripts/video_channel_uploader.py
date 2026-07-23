@@ -38,6 +38,8 @@ except ImportError:
 class VideoChannelUploader:
     """视频号助手自动化上传器"""
     
+    VIDEO_CHANNEL_ID = "sphCFYXFm1BjcDy"  # 您的视频号ID
+    
     def __init__(self, method="playwright"):
         self.method = method
         self.browser = None
@@ -68,12 +70,41 @@ class VideoChannelUploader:
         else:
             raise Exception("没有可用的浏览器自动化工具")
     
-    def login(self):
-        """扫码登录视频号助手"""
-        print("🔐 正在打开视频号助手...")
+    def login(self, video_channel_id=None):
+        """
+        扫码登录视频号助手
+        
+        Args:
+            video_channel_id: 可选，指定视频号ID (如不提供使用默认)
+        """
+        # 使用指定的视频号ID或默认ID
+        target_id = video_channel_id or self.VIDEO_CHANNEL_ID
+        
+        print(f"🔐 正在打开视频号助手...")
+        print(f"📱 目标视频号ID: {target_id}")
         
         if self.method == "playwright":
+            # 先访问主页
             self.page.goto("https://channels.weixin.qq.com/")
+            
+            # 如果指定了视频号，尝试切换
+            if target_id:
+                print(f"🔄 正在切换到视频号: {target_id}")
+                # 等待页面加载
+                time.sleep(2)
+                # 尝试查找账号切换按钮
+                try:
+                    # 点击账号选择
+                    account_btn = self.page.query_selector('.account-selector, .switch-account')
+                    if account_btn:
+                        account_btn.click()
+                        time.sleep(1)
+                        # 选择指定视频号
+                        self.page.click(f'text={target_id}')
+                        print(f"✅ 已切换到视频号: {target_id}")
+                except:
+                    print("ℹ️ 使用当前默认视频号")
+            
             print("📱 请使用微信扫码登录...")
             print("   (等待60秒)")
             
@@ -81,11 +112,35 @@ class VideoChannelUploader:
                 # 等待登录成功 (检测头像出现)
                 self.page.wait_for_selector(".user-avatar, .user-name", timeout=60000)
                 print("✅ 登录成功")
+                
+                # 验证当前视频号
+                try:
+                    current_id = self.page.inner_text('.video-channel-id, .account-id')
+                    print(f"✅ 当前视频号: {current_id}")
+                except:
+                    pass
+                    
             except:
                 print("❌ 登录超时")
                 return False
+                
         else:
             self.driver.get("https://channels.weixin.qq.com/")
+            
+            # 尝试切换视频号
+            if target_id:
+                try:
+                    # 查找账号切换
+                    switch_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".account-selector"))
+                    )
+                    switch_btn.click()
+                    # 选择指定视频号
+                    self.driver.find_element(By.XPATH, f"//*[contains(text(),'{target_id}')]") \
+                               .click()
+                except:
+                    pass
+            
             print("📱 请使用微信扫码登录...")
             
             try:
@@ -273,6 +328,8 @@ def main():
     parser.add_argument('--method', '-m', default='playwright', 
                        choices=['playwright', 'selenium'], help='自动化工具')
     parser.add_argument('--config', '-c', help='配置文件路径 (JSON格式)')
+    parser.add_argument('--video-channel-id', '-id', default='sphCFYXFm1BjcDy',
+                       help='视频号ID (默认: sphCFYXFm1BjcDy)')
     
     args = parser.parse_args()
     
@@ -280,7 +337,8 @@ def main():
     metadata = {
         'title': args.title,
         'description': args.desc,
-        'tags': args.tags.split(',') if args.tags else []
+        'tags': args.tags.split(',') if args.tags else [],
+        'video_channel_id': args.video_channel_id
     }
     
     if args.config:
@@ -299,22 +357,40 @@ def main():
 已有2万+开发者使用
 
 限时领取100+清华AI课件模板
-关注视频号，回复【课件】自动领取''',
-            'tags': ['OpenMAIC', 'AI课程', '清华大学', '教育科技', '知识付费']
+关注视频号，回复【课件】自动领取
+
+视频号ID: sphCFYXFm1BjcDy''',
+            'tags': ['OpenMAIC', 'AI课程', '清华大学', '教育科技', '知识付费'],
+            'video_channel_id': args.video_channel_id
         }
+    
+    print("=" * 50)
+    print("🎬 视频号自动化上传工具")
+    print("=" * 50)
+    print(f"📱 视频号ID: {args.video_channel_id}")
+    print(f"🎥 视频文件: {args.video}")
+    print(f"🤖 使用引擎: {args.method}")
+    print("=" * 50)
     
     # 执行上传
     uploader = VideoChannelUploader(method=args.method)
     try:
         uploader.init_browser()
-        if uploader.login():
+        if uploader.login(args.video_channel_id):
             success = uploader.upload_to_draft(args.video, metadata)
             if success:
-                print("\n🎉 全部完成！请登录视频号助手查看草稿箱")
+                print("\n" + "=" * 50)
+                print("🎉 全部完成！")
+                print(f"📱 视频号: {args.video_channel_id}")
+                print("🔗 请登录视频号助手查看草稿箱")
+                print("   https://channels.weixin.qq.com/")
+                print("=" * 50)
             else:
                 print("\n❌ 上传失败")
         else:
             print("\n❌ 登录失败")
+    except KeyboardInterrupt:
+        print("\n\n⚠️ 用户取消操作")
     finally:
         uploader.close()
 
