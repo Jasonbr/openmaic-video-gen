@@ -46,11 +46,19 @@ class VideoChannelUploader:
         self.page = None
         self.driver = None
         
-    def init_browser(self):
-        """初始化浏览器"""
+    def init_browser(self, headless=True):
+        """
+        初始化浏览器
+        
+        Args:
+            headless: 是否无头模式 (默认True，服务器环境)
+        """
         if self.method == "playwright" and PLAYWRIGHT_AVAILABLE:
             self.playwright = sync_playwright().start()
-            self.browser = self.playwright.chromium.launch(headless=False)
+            self.browser = self.playwright.chromium.launch(
+                headless=headless,
+                args=['--no-sandbox', '--disable-setuid-sandbox'] if headless else []
+            )
             self.context = self.browser.new_context(
                 viewport={'width': 1920, 'height': 1080}
             )
@@ -60,7 +68,8 @@ class VideoChannelUploader:
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
-            # chrome_options.add_argument("--headless")  # 首次运行建议关闭
+            if headless:
+                chrome_options.add_argument("--headless")
             
             self.driver = webdriver.Chrome(
                 service=Service(ChromeDriverManager().install()),
@@ -113,6 +122,17 @@ class VideoChannelUploader:
             print("2. 使用微信扫码登录")
             print("3. 如需帮助，请联系: 扫码找我")
             print("=" * 50)
+            
+            # 等待二维码出现并截图
+            time.sleep(3)  # 等待二维码加载
+            try:
+                # 截图保存二维码
+                screenshot_path = "/tmp/video_channel_qr.png"
+                self.page.screenshot(path=screenshot_path, full_page=False)
+                print(f"📸 二维码已截图保存: {screenshot_path}")
+                print("💡 请查看 /tmp/video_channel_qr.png 获取二维码")
+            except Exception as e:
+                print(f"⚠️ 截图失败: {e}")
             
             try:
                 # 尝试检测扫码成功
@@ -358,6 +378,10 @@ def main():
     parser.add_argument('--config', '-c', help='配置文件路径 (JSON格式)')
     parser.add_argument('--video-channel-id', '-id', default='sphCFYXFm1BjcDy',
                        help='视频号ID (默认: sphCFYXFm1BjcDy)')
+    parser.add_argument('--headless', action='store_true', default=True,
+                       help='无头模式运行 (默认开启，服务器环境使用)')
+    parser.add_argument('--no-headless', action='store_false', dest='headless',
+                       help='显示浏览器窗口 (本地测试使用)')
     
     args = parser.parse_args()
     
@@ -398,12 +422,13 @@ def main():
     print(f"📱 视频号ID: {args.video_channel_id}")
     print(f"🎥 视频文件: {args.video}")
     print(f"🤖 使用引擎: {args.method}")
+    print(f"👻 无头模式: {args.headless}")
     print("=" * 50)
     
     # 执行上传
     uploader = VideoChannelUploader(method=args.method)
     try:
-        uploader.init_browser()
+        uploader.init_browser(headless=args.headless)
         if uploader.login(args.video_channel_id):
             success = uploader.upload_to_draft(args.video, metadata)
             if success:
